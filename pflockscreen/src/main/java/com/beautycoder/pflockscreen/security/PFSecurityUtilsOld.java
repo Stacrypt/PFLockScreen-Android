@@ -1,6 +1,8 @@
 package com.beautycoder.pflockscreen.security;
 
 import android.content.Context;
+import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.security.KeyPairGeneratorSpec;
 import android.security.keystore.KeyProperties;
 import androidx.annotation.NonNull;
@@ -19,6 +21,7 @@ import java.security.NoSuchProviderException;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Locale;
 
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
@@ -172,6 +175,12 @@ public class PFSecurityUtilsOld implements IPFSecurityUtils {
             boolean isAuthenticationRequired
     ) {
         try {
+            // Set English locale as default (workaround for rtl parsing date exception)
+            // From https://stackoverflow.com/a/46602170
+            // FIXME: A temporary fixture for issue described at https://issuetracker.google.com/issues/37095309
+            Locale initialLocale = Locale.getDefault();
+            setLocale(context, Locale.ENGLISH);
+
             final Calendar start = Calendar.getInstance();
             final Calendar end = Calendar.getInstance();
             end.add(Calendar.YEAR, 25);
@@ -193,6 +202,8 @@ public class PFSecurityUtilsOld implements IPFSecurityUtils {
 
             keyGen.initialize(spec);
             keyGen.generateKeyPair();
+            // Reset default locale
+            setLocale(context, initialLocale);
             return true;
 
         } catch ( NoSuchAlgorithmException
@@ -201,6 +212,14 @@ public class PFSecurityUtilsOld implements IPFSecurityUtils {
             exc.printStackTrace();
             return false;
         }
+    }
+
+    private void setLocale(Context context, Locale locale) {
+        Locale.setDefault(locale);
+        Resources resources = context.getResources();
+        Configuration config = resources.getConfiguration();
+        config.locale = locale;
+        resources.updateConfiguration(config, resources.getDisplayMetrics());
     }
 
     @Override
