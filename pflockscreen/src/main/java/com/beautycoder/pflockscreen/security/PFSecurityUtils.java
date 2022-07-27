@@ -2,6 +2,8 @@ package com.beautycoder.pflockscreen.security;
 
 import android.annotation.TargetApi;
 import android.content.Context;
+import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.os.Build;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
@@ -24,6 +26,7 @@ import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.Locale;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -109,10 +112,6 @@ public class PFSecurityUtils implements IPFSecurityUtils {
         return false;
     }
 
-    private boolean generateKey(Context context, String keystoreAlias, boolean isAuthenticationRequired) {
-        return generateKey(keystoreAlias, isAuthenticationRequired);
-    }
-
     private String decode(String encodedString, Cipher cipher) throws PFSecurityException  {
         try {
             final byte[] bytes = Base64.decode(encodedString, Base64.NO_WRAP);
@@ -143,8 +142,14 @@ public class PFSecurityUtils implements IPFSecurityUtils {
     }
 
     @TargetApi(Build.VERSION_CODES.M)
-    private boolean generateKey(String keystoreAlias, boolean isAuthenticationRequired)  {
+    private boolean generateKey(Context context, String keystoreAlias, boolean isAuthenticationRequired)  {
         try {
+            // Set English locale as default (workaround for rtl parsing date exception)
+            // From https://stackoverflow.com/a/46602170
+            // FIXME: A temporary fixture for issue described at https://issuetracker.google.com/issues/37095309
+            Locale initialLocale = Locale.getDefault();
+            setLocale(context, Locale.ENGLISH);
+
             final KeyPairGenerator keyGenerator = KeyPairGenerator.getInstance(
                     KeyProperties.KEY_ALGORITHM_RSA, "AndroidKeyStore");
             keyGenerator.initialize(
@@ -156,6 +161,8 @@ public class PFSecurityUtils implements IPFSecurityUtils {
                             .setUserAuthenticationRequired(isAuthenticationRequired)
                             .build());
             keyGenerator.generateKeyPair();
+            // Reset default locale
+            setLocale(context, initialLocale);
             return true;
 
         } catch ( NoSuchAlgorithmException
@@ -164,6 +171,14 @@ public class PFSecurityUtils implements IPFSecurityUtils {
             exc.printStackTrace();
             return false;
         }
+    }
+
+    private void setLocale(Context context, Locale locale) {
+        Locale.setDefault(locale);
+        Resources resources = context.getResources();
+        Configuration config = resources.getConfiguration();
+        config.locale = locale;
+        resources.updateConfiguration(config, resources.getDisplayMetrics());
     }
 
     private Cipher getCipherInstance() throws PFSecurityException {
